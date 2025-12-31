@@ -19,6 +19,7 @@ export const ICONS = {
   Minimize: <Minimize size={20} />,
   Settings: <Settings size={20} />,
   Upload: <Plus size={20} />,
+  Plus: <Plus size={20} />,
   Delete: <Trash2 size={16} />,
   Recent: <Clock size={16} />,
   Video: <FileVideo size={32} />,

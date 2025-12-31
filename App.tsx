@@ -5,6 +5,8 @@ import { ICONS } from './constants';
 import VideoLibrary from './components/VideoLibrary';
 import CustomVideoPlayer from './components/CustomVideoPlayer';
 import { generateThumbnail } from './services/videoService';
+// Import icons directly to handle custom styling as components
+import { Plus, Search } from 'lucide-react';
 
 const App: React.FC = () => {
   const [videos, setVideos] = useState<VideoMetadata[]>([]);
@@ -16,21 +18,20 @@ const App: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const subInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('omniplayer_library');
     if (saved) {
-      // Re-hydrate library. Note: URLs are not saved so we simulate a 'disconnected' state 
-      // where the user must click thumbnail to 'link' if it's external, 
-      // but here we keep things simple for the demo.
-      setVideos(JSON.parse(saved));
+      const items = JSON.parse(saved);
+      // Clean stale blob URLs - browser invalidates them on reload
+      setVideos(items.map((v: VideoMetadata) => ({ ...v, url: '' })));
     }
   }, []);
 
   useEffect(() => {
-    // Only save essential metadata
-    const toSave = videos.map(v => ({ ...v, url: v.url.startsWith('blob:') ? '' : v.url }));
-    localStorage.setItem('omniplayer_library', JSON.stringify(toSave));
+    // Only save essential metadata, blanking out the transient blob URL
+    localStorage.setItem('omniplayer_library', JSON.stringify(videos.map(v => ({ ...v, url: '' }))));
   }, [videos]);
 
   const handleFileUpload = async (files: FileList | File[]) => {
@@ -50,14 +51,11 @@ const App: React.FC = () => {
       
       const duration: number = await new Promise((resolve) => {
         videoEl.onloadedmetadata = () => resolve(videoEl.duration);
+        videoEl.onerror = () => resolve(0);
       });
 
       const thumbnail = await generateThumbnail(file);
-      
-      // Determine folder based on simple logic
-      let folder = 'Downloads';
-      if (file.size > 500 * 1024 * 1024) folder = 'Movies';
-      if (file.name.includes('VID')) folder = 'Camera';
+      const folder = file.size > 500000000 ? 'Movies' : file.name.includes('VID') ? 'Camera' : 'Downloads';
 
       newVideos.push({
         id: Math.random().toString(36).substr(2, 9),
@@ -73,190 +71,146 @@ const App: React.FC = () => {
       });
     }
 
-    setVideos(prev => [...newVideos, ...prev]);
+    setVideos(prev => {
+      const unique = [...newVideos, ...prev].filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+      return unique;
+    });
     setIsUploading(false);
     setUploadProgress(0);
   };
 
-  const folders = ['All Media', ...new Set(videos.map(v => v.folder))];
-  
+  const handleSubtitleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && selectedVideo) {
+      const url = URL.createObjectURL(file);
+      setVideos(prev => prev.map(v => v.id === selectedVideo.id ? { ...v, subtitleUrl: url } : v));
+      setSelectedVideo(prev => prev ? { ...prev, subtitleUrl: url } : null);
+    }
+  };
+
   const filteredVideos = videos.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFolder = selectedFolder === 'All Media' || v.folder === selectedFolder;
     return matchesSearch && matchesFolder;
   });
 
+  const folders = ['All Media', ...new Set(videos.map(v => v.folder))];
+
   return (
     <div 
-      className="flex h-screen bg-black text-zinc-100 overflow-hidden font-sans selection:bg-blue-500/30"
+      className="flex h-screen bg-black text-zinc-100 overflow-hidden"
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        handleFileUpload(e.dataTransfer.files);
-      }}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e.dataTransfer.files); }}
     >
-      {/* Drop Zone Overlay */}
+      {/* Drag Overlay */}
       {isDragging && (
-        <div className="fixed inset-0 z-[200] bg-blue-600/20 backdrop-blur-xl border-4 border-dashed border-blue-500 flex flex-col items-center justify-center p-10 animate-in fade-in duration-300">
-           <div className="bg-blue-600 p-8 rounded-full shadow-2xl shadow-blue-500/50 mb-6">
-             {ICONS.Upload}
-           </div>
-           <h2 className="text-4xl font-black tracking-tighter uppercase italic">Drop to Import</h2>
-           <p className="text-blue-300 mt-2 font-medium tracking-wide">MP4, MKV, AVI and WebM supported</p>
+        <div className="fixed inset-0 z-[200] bg-blue-600/30 backdrop-blur-3xl border-4 border-dashed border-blue-500/50 flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
+           <Plus size={64} className="text-white animate-bounce" />
+           <h2 className="text-3xl font-black mt-4 uppercase tracking-tighter">Drop to Import Media</h2>
         </div>
       )}
 
-      {/* Sidebar Navigation */}
-      <nav className="hidden lg:flex w-80 flex-col bg-zinc-900/10 border-r border-white/5 backdrop-blur-3xl z-30">
+      {/* Sidebar */}
+      <nav className="hidden lg:flex w-72 flex-col bg-zinc-950 border-r border-white/5 z-30">
         <div className="p-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
-              {ICONS.Video}
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tighter leading-none">OMNI<span className="text-blue-500">PRO</span></h1>
-              <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-1 block">Media Station</span>
-            </div>
-          </div>
+           <h1 className="text-2xl font-black italic tracking-tighter text-blue-500">OMNI<span className="text-white not-italic">PRO</span></h1>
         </div>
 
-        <div className="flex-1 px-4 space-y-8 overflow-y-auto pb-8">
-          <div>
-            <h3 className="px-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Navigation</h3>
-            <div className="space-y-1">
-              {folders.map(folder => (
-                <button 
-                  key={folder}
-                  onClick={() => setSelectedFolder(folder)}
-                  className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl font-bold transition-all ${selectedFolder === folder ? 'bg-blue-600/10 text-blue-400 border border-blue-500/10 shadow-lg shadow-blue-500/5' : 'text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-200'}`}
-                >
-                  <div className="flex items-center gap-4">
-                    {folder === 'All Media' ? ICONS.Video : ICONS.Folder}
-                    {folder}
-                  </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md font-black ${selectedFolder === folder ? 'bg-blue-500/20' : 'bg-zinc-800 text-zinc-600'}`}>
-                    {folder === 'All Media' ? videos.length : videos.filter(v => v.folder === folder).length}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-             <h3 className="px-6 text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Library</h3>
-             <button className="w-full flex items-center gap-4 px-6 py-4 text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-200 rounded-2xl font-bold transition-all">
-                {ICONS.Recent} Recently Played
-             </button>
-          </div>
+        <div className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {folders.map(folder => (
+            <button 
+              key={folder}
+              onClick={() => setSelectedFolder(folder)}
+              className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl font-bold transition-all ${selectedFolder === folder ? 'bg-blue-600/10 text-blue-400 border border-blue-500/10' : 'text-zinc-600 hover:text-zinc-300'}`}
+            >
+              <div className="flex items-center gap-4">
+                {folder === 'All Media' ? ICONS.Video : ICONS.Folder}
+                <span className="truncate">{folder}</span>
+              </div>
+            </button>
+          ))}
         </div>
 
-        <div className="p-6 mt-auto">
+        <div className="p-6">
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 hover:bg-white transition-all shadow-xl shadow-white/5"
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 hover:bg-blue-500 transition-all"
           >
-            {ICONS.Upload} Import New
+            {ICONS.Upload} Import Files
           </button>
           <input ref={fileInputRef} type="file" accept="video/*" multiple className="hidden" onChange={(e) => e.target.files && handleFileUpload(e.target.files)} />
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-zinc-950">
-        
-        {/* Header Bar */}
-        <header className="h-20 flex items-center justify-between px-8 bg-black/40 border-b border-white/5 backdrop-blur-md">
-          <div className="flex-1 max-w-2xl relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center text-zinc-600 group-focus-within:text-blue-500 transition-colors">
-              {ICONS.Search}
-            </div>
-            <input 
-              type="text" 
-              placeholder={`Search in ${selectedFolder}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900/40 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all placeholder:text-zinc-600 font-medium"
-            />
-          </div>
+      <main className="flex-1 flex flex-col min-w-0 bg-[#000]">
+        <header className="h-20 flex items-center justify-between px-8 bg-zinc-950/50 border-b border-white/5 backdrop-blur-xl">
+           <div className="flex-1 max-w-xl relative group">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500" />
+              <input 
+                type="text" 
+                placeholder="Search media library..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-zinc-900/30 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+           </div>
 
-          <div className="flex items-center gap-4 ml-6">
-            <div className="flex bg-zinc-900/80 p-1.5 rounded-xl border border-white/10">
-              <button 
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-zinc-800 text-white shadow-xl' : 'text-zinc-600 hover:text-zinc-300'}`}
-              >
-                {ICONS.Grid}
-              </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-zinc-800 text-white shadow-xl' : 'text-zinc-600 hover:text-zinc-300'}`}
-              >
-                {ICONS.List}
-              </button>
-            </div>
-            
-            {isUploading && (
-               <div className="px-5 py-2.5 bg-blue-600/10 border border-blue-500/20 rounded-2xl flex items-center gap-4">
-                  <div className="w-24 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 animate-pulse" style={{ width: `${uploadProgress || 30}%` }} />
-                  </div>
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Processing</span>
-               </div>
-            )}
-          </div>
+           <div className="flex items-center gap-4 ml-6">
+              <div className="flex bg-zinc-900/50 p-1 rounded-xl border border-white/10">
+                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>{ICONS.Grid}</button>
+                <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>{ICONS.List}</button>
+              </div>
+           </div>
         </header>
 
-        {/* Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
            <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-between mb-8 px-4">
-                 <div>
-                    <h2 className="text-3xl font-black tracking-tighter uppercase italic">{selectedFolder}</h2>
-                    <p className="text-zinc-600 text-xs font-bold uppercase tracking-widest mt-1">Total {filteredVideos.length} items</p>
-                 </div>
-                 {videos.length > 0 && (
-                   <button 
-                    onClick={() => {
-                      if(confirm('Clear entire library?')) {
-                        setVideos([]);
-                        localStorage.removeItem('omniplayer_library');
-                      }
-                    }}
-                    className="flex items-center gap-2 text-zinc-700 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors"
-                   >
-                     {ICONS.Delete} Clear All
-                   </button>
+              <div className="flex items-center justify-between mb-8">
+                 <h2 className="text-3xl font-black tracking-tighter uppercase italic">{selectedFolder}</h2>
+                 {videos.some(v => !v.url) && (
+                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                     Some files need re-linking (Click to add)
+                   </p>
                  )}
               </div>
-              
+
               <VideoLibrary 
                 videos={filteredVideos} 
                 onSelect={(v) => {
-                  // If blob URL is empty (from storage), we notify user or try to restore 
-                  // In this sandbox, we assume transient files for the current session.
-                  if (!v.url && !v.url.startsWith('blob:')) {
-                    alert('Please re-upload this file to play (Session limitation).');
+                  if (!v.url) {
+                    fileInputRef.current?.click();
                     return;
                   }
                   setSelectedVideo(v);
-                }} 
-                onDelete={(id) => setVideos(v => v.filter(i => i.id !== id))}
+                }}
+                onDelete={(id) => setVideos(prev => prev.filter(v => v.id !== id))}
                 viewMode={viewMode}
               />
            </div>
         </div>
       </main>
 
-      {/* Fullscreen Player Modal */}
+      {/* Video Player & Subtitle Logic */}
       {selectedVideo && (
-        <div className="fixed inset-0 z-[100] bg-black animate-in fade-in zoom-in duration-500">
+        <div className="fixed inset-0 z-[100] bg-black">
            <CustomVideoPlayer 
              video={selectedVideo} 
              onClose={() => setSelectedVideo(null)} 
-             onUpdateMetadata={(id, up) => setVideos(prev => prev.map(v => v.id === id ? { ...v, ...up } : v))}
+             onUpdateMetadata={(id, up) => setVideos(prev => prev.map(v => v.id === id ? {...v, ...up} : v))}
            />
+           {/* Floating Subtitle Button in player */}
+           <div className="absolute top-20 right-6 z-[110] flex flex-col gap-2">
+              <button 
+                onClick={() => subInputRef.current?.click()}
+                className="p-3 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full text-zinc-400 hover:text-white"
+                title="Add External Subtitles"
+              >
+                {ICONS.Plus}
+              </button>
+              <input ref={subInputRef} type="file" accept=".srt,.vtt" className="hidden" onChange={handleSubtitleUpload} />
+           </div>
         </div>
       )}
     </div>

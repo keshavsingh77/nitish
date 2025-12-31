@@ -7,20 +7,22 @@ export interface VideoMetadata {
   type: string;
   url: string;
   thumbnail?: string;
-  lastWatched: number; // current time in seconds
+  lastWatched: number;
   uploadDate: number;
-  folder: string; // e.g., 'Downloads', 'Camera', 'Movies'
-  hasSubtitles?: boolean;
+  folder: string;
+  subtitleUrl?: string;
 }
 
 export interface PlayerState {
   playing: boolean;
   currentTime: number;
   duration: number;
-  volume: number;
+  volume: number; // 0 to 1
+  audioBoost: number; // 1 to 2 (100% to 200%)
   playbackRate: number;
   isMuted: boolean;
   isFullscreen: boolean;
   buffered: number;
   showSubtitles: boolean;
+  isLocked: boolean;
 }
