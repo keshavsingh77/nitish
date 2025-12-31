@@ -1,0 +1,8 @@
+{
+  "name": "OmniPlayer - Pro Video Suite",
+  "description": "A high-performance, MX Player/VLC style web video player with custom controls, library management, and advanced playback features.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
