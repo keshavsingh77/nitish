@@ -14,3 +14,6 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Signify app is ready to remove loader
+window.dispatchEvent(new Event('load'));

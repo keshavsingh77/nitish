@@ -5,8 +5,6 @@ import { ICONS } from './constants';
 import VideoLibrary from './components/VideoLibrary';
 import CustomVideoPlayer from './components/CustomVideoPlayer';
 import { generateThumbnail } from './services/videoService';
-// Import icons directly to handle custom styling as components
-import { Plus, Search } from 'lucide-react';
 
 const App: React.FC = () => {
   const [videos, setVideos] = useState<VideoMetadata[]>([]);
@@ -23,9 +21,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const saved = localStorage.getItem('omniplayer_library');
     if (saved) {
-      const items = JSON.parse(saved);
-      // Clean stale blob URLs - browser invalidates them on reload
-      setVideos(items.map((v: VideoMetadata) => ({ ...v, url: '' })));
+      try {
+        const items = JSON.parse(saved);
+        // Clean stale blob URLs - browser invalidates them on reload
+        setVideos(items.map((v: VideoMetadata) => ({ ...v, url: '' })));
+      } catch (e) {
+        console.error("Failed to load library", e);
+      }
     }
   }, []);
 
@@ -106,7 +108,7 @@ const App: React.FC = () => {
       {/* Drag Overlay */}
       {isDragging && (
         <div className="fixed inset-0 z-[200] bg-blue-600/30 backdrop-blur-3xl border-4 border-dashed border-blue-500/50 flex flex-col items-center justify-center pointer-events-none animate-in fade-in duration-300">
-           <Plus size={64} className="text-white animate-bounce" />
+           <ICONS.Plus size={64} className="text-white animate-bounce" />
            <h2 className="text-3xl font-black mt-4 uppercase tracking-tighter">Drop to Import Media</h2>
         </div>
       )}
@@ -125,7 +127,7 @@ const App: React.FC = () => {
               className={`w-full flex items-center justify-between px-6 py-4 rounded-2xl font-bold transition-all ${selectedFolder === folder ? 'bg-blue-600/10 text-blue-400 border border-blue-500/10' : 'text-zinc-600 hover:text-zinc-300'}`}
             >
               <div className="flex items-center gap-4">
-                {folder === 'All Media' ? ICONS.Video : ICONS.Folder}
+                {folder === 'All Media' ? <ICONS.Video size={20} /> : <ICONS.Folder size={20} />}
                 <span className="truncate">{folder}</span>
               </div>
             </button>
@@ -135,9 +137,9 @@ const App: React.FC = () => {
         <div className="p-6">
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 hover:bg-blue-500 transition-all"
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-blue-900/20 hover:bg-blue-500 transition-all flex items-center justify-center gap-2"
           >
-            {ICONS.Upload} Import Files
+            <ICONS.Upload size={16} /> Import Files
           </button>
           <input ref={fileInputRef} type="file" accept="video/*" multiple className="hidden" onChange={(e) => e.target.files && handleFileUpload(e.target.files)} />
         </div>
@@ -147,7 +149,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col min-w-0 bg-[#000]">
         <header className="h-20 flex items-center justify-between px-8 bg-zinc-950/50 border-b border-white/5 backdrop-blur-xl">
            <div className="flex-1 max-w-xl relative group">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500" />
+              <ICONS.Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500" />
               <input 
                 type="text" 
                 placeholder="Search media library..."
@@ -159,8 +161,8 @@ const App: React.FC = () => {
 
            <div className="flex items-center gap-4 ml-6">
               <div className="flex bg-zinc-900/50 p-1 rounded-xl border border-white/10">
-                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>{ICONS.Grid}</button>
-                <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}>{ICONS.List}</button>
+                <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}><ICONS.Grid size={18} /></button>
+                <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}><ICONS.List size={18} /></button>
               </div>
            </div>
         </header>
@@ -207,7 +209,7 @@ const App: React.FC = () => {
                 className="p-3 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full text-zinc-400 hover:text-white"
                 title="Add External Subtitles"
               >
-                {ICONS.Plus}
+                <ICONS.Plus size={20} />
               </button>
               <input ref={subInputRef} type="file" accept=".srt,.vtt" className="hidden" onChange={handleSubtitleUpload} />
            </div>

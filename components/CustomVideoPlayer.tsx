@@ -3,7 +3,6 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { VideoMetadata, PlayerState } from '../types';
 import { ICONS, PLAYBACK_RATES } from '../constants';
 import { formatTime } from '../services/videoService';
-import { Volume2, Sun } from 'lucide-react';
 
 interface Props {
   video: VideoMetadata;
@@ -40,20 +39,26 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
   useEffect(() => {
     if (!videoRef.current) return;
     
-    if (!audioCtxRef.current) {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioCtx.createMediaElementSource(videoRef.current);
-      const gainNode = audioCtx.createGain();
-      
-      source.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      
-      audioCtxRef.current = audioCtx;
-      gainNodeRef.current = gainNode;
+    let audioCtx: AudioContext;
+    try {
+        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(videoRef.current);
+        const gainNode = audioCtx.createGain();
+        
+        source.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        audioCtxRef.current = audioCtx;
+        gainNodeRef.current = gainNode;
+    } catch (e) {
+        console.warn("AudioContext setup failed (Likely already connected or unsupported)", e);
     }
 
     return () => {
-      // AudioContext persists to avoid source errors on re-mount if needed
+      if (audioCtxRef.current) {
+        // We don't necessarily want to close it if the component re-mounts quickly, 
+        // but MediaElementSource can only be created once per element.
+      }
     };
   }, []);
 
@@ -143,7 +148,7 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
             onClick={() => { setState(s => ({...s, isLocked: false})); setShowControls(true); }}
             className="p-4 bg-blue-600/20 backdrop-blur-xl rounded-full text-blue-400 border border-blue-500/20 hover:bg-blue-600/40 transition-all"
           >
-            {ICONS.Unlock}
+            <ICONS.Unlock size={32} />
           </button>
         </div>
       )}
@@ -152,7 +157,7 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
       {seekOverlay && (
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
           <div className="flex flex-col items-center gap-2 animate-ping text-blue-500">
-            {seekOverlay === 'back' ? ICONS.Back : ICONS.Forward}
+            {seekOverlay === 'back' ? <ICONS.Back size={48} /> : <ICONS.Forward size={48} />}
             <span className="font-black">10s</span>
           </div>
         </div>
@@ -164,7 +169,7 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
         {/* Header */}
         <div className="bg-gradient-to-b from-black/90 to-transparent p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full">{ICONS.Close}</button>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full"><ICONS.Close size={24} /></button>
             <div className="min-w-0">
               <h2 className="text-xl font-black truncate max-w-sm text-white tracking-tighter">{video.name}</h2>
               <p className="text-[10px] text-blue-500 font-black uppercase tracking-[0.3em]">{video.folder}</p>
@@ -175,16 +180,16 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
               onClick={() => setState(s => ({...s, showSubtitles: !s.showSubtitles}))}
               className={`p-3 rounded-xl transition-all ${state.showSubtitles ? 'bg-blue-600 text-white' : 'text-zinc-500 hover:bg-white/10'}`}
             >
-              {ICONS.Subtitles}
+              <ICONS.Subtitles size={20} />
             </button>
-            <button onClick={() => setState(s => ({...s, isLocked: true}))} className="p-3 text-zinc-500 hover:text-white transition-all">{ICONS.Lock}</button>
+            <button onClick={() => setState(s => ({...s, isLocked: true}))} className="p-3 text-zinc-500 hover:text-white transition-all"><ICONS.Lock size={20} /></button>
           </div>
         </div>
 
         {/* Center Play Button */}
         {!state.playing && (
           <button onClick={togglePlay} className="m-auto p-12 bg-blue-600 rounded-full shadow-[0_0_80px_rgba(59,130,246,0.3)] hover:scale-110 transition-transform">
-            {ICONS.Play}
+            <ICONS.Play size={48} fill="currentColor" />
           </button>
         )}
 
@@ -200,24 +205,24 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
               className="absolute z-30 w-full h-full opacity-0 cursor-pointer"
             />
             <div className="absolute h-1.5 inset-x-0 bg-white/10 rounded-full overflow-hidden">
-               <div className="h-full bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,1)]" style={{ width: `${(state.currentTime / state.duration) * 100}%` }} />
+               <div className="h-full bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,1)]" style={{ width: `${(state.currentTime / (state.duration || 1)) * 100}%` }} />
             </div>
-            <div className="absolute w-4 h-4 bg-white rounded-full border-4 border-blue-600 top-1/2 -translate-y-1/2 opacity-0 group-hover/time:opacity-100 transition-opacity" style={{ left: `${(state.currentTime / state.duration) * 100}%` }} />
+            <div className="absolute w-4 h-4 bg-white rounded-full border-4 border-blue-600 top-1/2 -translate-y-1/2 opacity-0 group-hover/time:opacity-100 transition-opacity" style={{ left: `${(state.currentTime / (state.duration || 1)) * 100}%` }} />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
-                <button onClick={() => skip(-10)} className="p-2 hover:text-blue-500 transition-colors">{ICONS.Back}</button>
+                <button onClick={() => skip(-10)} className="p-2 hover:text-blue-500 transition-colors"><ICONS.Back size={24} /></button>
                 <button onClick={togglePlay} className="p-4 bg-white text-black rounded-full hover:scale-105 transition-transform">
-                  {state.playing ? ICONS.Pause : ICONS.Play}
+                  {state.playing ? <ICONS.Pause size={24} /> : <ICONS.Play size={24} fill="currentColor" />}
                 </button>
-                <button onClick={() => skip(10)} className="p-2 hover:text-blue-500 transition-colors">{ICONS.Forward}</button>
+                <button onClick={() => skip(10)} className="p-2 hover:text-blue-500 transition-colors"><ICONS.Forward size={24} /></button>
               </div>
 
               {/* VLC Style Volume/Boost */}
               <div className="flex items-center gap-3 group/vol bg-zinc-900/50 px-4 py-2 rounded-2xl border border-white/5">
-                <Volume2 size={16} className={state.audioBoost > 1 ? 'text-orange-500' : 'text-zinc-500'} />
+                <ICONS.VolumeHigh size={16} className={state.audioBoost > 1 ? 'text-orange-500' : 'text-zinc-500'} />
                 <input 
                   type="range" min="0" max="2" step="0.01" value={state.audioBoost}
                   onChange={(e) => setState(s => ({...s, audioBoost: parseFloat(e.target.value)}))}
@@ -236,7 +241,7 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
             <div className="flex items-center gap-4">
                {/* Brightness */}
                <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-2 rounded-2xl border border-white/5">
-                  <Sun size={14} className="text-zinc-500" />
+                  <ICONS.Brightness size={14} className="text-zinc-500" />
                   <input 
                     type="range" min="20" max="150" value={brightness}
                     onChange={(e) => setBrightness(parseInt(e.target.value))}
@@ -271,7 +276,7 @@ const CustomVideoPlayer: React.FC<Props> = ({ video, onClose, onUpdateMetadata }
                </div>
 
                <button onClick={toggleFullscreen} className="p-2 text-zinc-500 hover:text-white transition-all">
-                {state.isFullscreen ? ICONS.Minimize : ICONS.Maximize}
+                {state.isFullscreen ? <ICONS.Minimize size={24} /> : <ICONS.Maximize size={24} />}
               </button>
             </div>
           </div>

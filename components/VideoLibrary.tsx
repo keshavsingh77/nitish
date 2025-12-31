@@ -16,7 +16,7 @@ const VideoLibrary: React.FC<Props> = ({ videos, onSelect, onDelete, viewMode })
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
         <div className="w-24 h-24 bg-zinc-900/50 rounded-full flex items-center justify-center mb-6 text-zinc-700 animate-pulse">
-          {ICONS.Video}
+          <ICONS.Video size={48} />
         </div>
         <h3 className="text-2xl font-bold mb-3 text-zinc-300 tracking-tight">Your Cinema is Empty</h3>
         <p className="text-zinc-500 max-w-sm leading-relaxed">
@@ -53,7 +53,7 @@ const VideoLibrary: React.FC<Props> = ({ videos, onSelect, onDelete, viewMode })
               onClick={(e) => { e.stopPropagation(); onDelete(video.id); }}
               className="p-3 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              {ICONS.Delete}
+              <ICONS.Delete size={16} />
             </button>
           </div>
         ))}
@@ -72,11 +72,13 @@ const VideoLibrary: React.FC<Props> = ({ videos, onSelect, onDelete, viewMode })
             {video.thumbnail ? (
               <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={video.name}/>
             ) : (
-              <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600">{ICONS.Video}</div>
+              <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600">
+                <ICONS.Video size={48} />
+              </div>
             )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all duration-300 backdrop-blur-[2px]">
                <div className="p-4 bg-blue-500 rounded-full text-white shadow-[0_0_30px_rgba(59,130,246,0.5)] transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                {ICONS.Play}
+                <ICONS.Play size={24} fill="currentColor" />
               </div>
             </div>
             <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/90 text-[10px] font-black rounded text-white tracking-widest shadow-lg border border-white/10">
@@ -100,7 +102,7 @@ const VideoLibrary: React.FC<Props> = ({ videos, onSelect, onDelete, viewMode })
                 </p>
               </div>
               <button onClick={(e) => { e.stopPropagation(); onDelete(video.id); }} className="p-2 text-zinc-700 hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-all">
-                {ICONS.Delete}
+                <ICONS.Delete size={16} />
               </button>
             </div>
           </div>
