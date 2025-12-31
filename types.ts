@@ -9,6 +9,8 @@ export interface VideoMetadata {
   thumbnail?: string;
   lastWatched: number; // current time in seconds
   uploadDate: number;
+  folder: string; // e.g., 'Downloads', 'Camera', 'Movies'
+  hasSubtitles?: boolean;
 }
 
 export interface PlayerState {
@@ -20,4 +22,5 @@ export interface PlayerState {
   isMuted: boolean;
   isFullscreen: boolean;
   buffered: number;
+  showSubtitles: boolean;
 }

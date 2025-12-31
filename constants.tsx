@@ -5,7 +5,7 @@ import {
   Maximize, Minimize, Settings, Plus, Trash2, Clock, 
   FileVideo, Info, MoreVertical, Check, ChevronDown, Download,
   Lock, Unlock, Search, LayoutGrid, List, PictureInPicture,
-  Sun, X
+  Sun, X, Folder, Subtitles, RotateCcw, AlertCircle
 } from 'lucide-react';
 
 export const ICONS = {
@@ -34,7 +34,11 @@ export const ICONS = {
   List: <List size={18} />,
   PiP: <PictureInPicture size={20} />,
   Brightness: <Sun size={20} />,
-  Close: <X size={20} />
+  Close: <X size={20} />,
+  Folder: <Folder size={20} />,
+  Subtitles: <Subtitles size={20} />,
+  Reset: <RotateCcw size={16} />,
+  Error: <AlertCircle size={32} />
 };
 
 export const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
