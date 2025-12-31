@@ -23,21 +23,24 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const items = JSON.parse(saved);
-        // Clean stale blob URLs - browser invalidates them on reload
-        setVideos(items.map((v: VideoMetadata) => ({ ...v, url: '' })));
+        if (Array.isArray(items)) {
+          // Clean stale blob URLs - browser invalidates them on reload
+          setVideos(items.map((v: VideoMetadata) => ({ ...v, url: v.url || '' })));
+        }
       } catch (e) {
-        console.error("Failed to load library", e);
+        console.error("Failed to parse library from localStorage", e);
       }
     }
   }, []);
 
   useEffect(() => {
-    // Only save essential metadata, blanking out the transient blob URL
-    localStorage.setItem('omniplayer_library', JSON.stringify(videos.map(v => ({ ...v, url: '' }))));
+    // Only save essential metadata, blanking out the transient blob URL to avoid stale data
+    const strippedVideos = videos.map(v => ({ ...v, url: '' }));
+    localStorage.setItem('omniplayer_library', JSON.stringify(strippedVideos));
   }, [videos]);
 
   const handleFileUpload = async (files: FileList | File[]) => {
-    if (!files.length) return;
+    if (!files || files.length === 0) return;
     setIsUploading(true);
     const newVideos: VideoMetadata[] = [];
 
@@ -51,32 +54,42 @@ const App: React.FC = () => {
       const videoEl = document.createElement('video');
       videoEl.src = url;
       
-      const duration: number = await new Promise((resolve) => {
-        videoEl.onloadedmetadata = () => resolve(videoEl.duration);
-        videoEl.onerror = () => resolve(0);
-      });
+      try {
+        const duration: number = await new Promise((resolve, reject) => {
+          videoEl.onloadedmetadata = () => resolve(videoEl.duration);
+          videoEl.onerror = () => reject(new Error("Video metadata load failed"));
+          // Safety timeout for metadata loading
+          setTimeout(() => resolve(0), 2000);
+        });
 
-      const thumbnail = await generateThumbnail(file);
-      const folder = file.size > 500000000 ? 'Movies' : file.name.includes('VID') ? 'Camera' : 'Downloads';
+        const thumbnail = await generateThumbnail(file);
+        const folder = file.size > 500000000 ? 'Movies' : file.name.includes('VID') ? 'Camera' : 'Downloads';
 
-      newVideos.push({
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        size: file.size,
-        duration,
-        type: file.type,
-        url,
-        thumbnail,
-        lastWatched: 0,
-        uploadDate: Date.now(),
-        folder
-      });
+        newVideos.push({
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          size: file.size,
+          duration,
+          type: file.type,
+          url,
+          thumbnail,
+          lastWatched: 0,
+          uploadDate: Date.now(),
+          folder
+        });
+      } catch (err) {
+        console.warn("Failed to process video file:", file.name, err);
+      }
     }
 
-    setVideos(prev => {
-      const unique = [...newVideos, ...prev].filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
-      return unique;
-    });
+    if (newVideos.length > 0) {
+      setVideos(prev => {
+        const unique = [...newVideos, ...prev].filter((v, i, a) => 
+          a.findIndex(t => t.name === v.name && t.size === v.size) === i
+        );
+        return unique;
+      });
+    }
     setIsUploading(false);
     setUploadProgress(0);
   };
@@ -100,7 +113,7 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="flex h-screen bg-black text-zinc-100 overflow-hidden"
+      className="flex h-screen bg-black text-zinc-100 overflow-hidden select-none"
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFileUpload(e.dataTransfer.files); }}
@@ -146,7 +159,7 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#000]">
+      <main className="flex-1 flex flex-col min-w-0 bg-black">
         <header className="h-20 flex items-center justify-between px-8 bg-zinc-950/50 border-b border-white/5 backdrop-blur-xl">
            <div className="flex-1 max-w-xl relative group">
               <ICONS.Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-blue-500" />
@@ -171,9 +184,9 @@ const App: React.FC = () => {
            <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between mb-8">
                  <h2 className="text-3xl font-black tracking-tighter uppercase italic">{selectedFolder}</h2>
-                 {videos.some(v => !v.url) && (
-                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                     Some files need re-linking (Click to add)
+                 {videos.some(v => !v.url) && videos.length > 0 && (
+                   <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                     Files detached since last session. Click to re-import.
                    </p>
                  )}
               </div>
@@ -206,13 +219,23 @@ const App: React.FC = () => {
            <div className="absolute top-20 right-6 z-[110] flex flex-col gap-2">
               <button 
                 onClick={() => subInputRef.current?.click()}
-                className="p-3 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full text-zinc-400 hover:text-white"
+                className="p-3 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:bg-blue-600 hover:border-blue-400"
                 title="Add External Subtitles"
               >
                 <ICONS.Plus size={20} />
               </button>
               <input ref={subInputRef} type="file" accept=".srt,.vtt" className="hidden" onChange={handleSubtitleUpload} />
            </div>
+        </div>
+      )}
+
+      {/* Loading Bar for Uploading */}
+      {isUploading && (
+        <div className="fixed bottom-0 left-0 right-0 h-1 bg-zinc-900 z-[200]">
+          <div 
+            className="h-full bg-blue-500 transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+            style={{ width: `${uploadProgress}%` }}
+          />
         </div>
       )}
     </div>
